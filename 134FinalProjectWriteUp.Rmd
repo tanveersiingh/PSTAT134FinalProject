@@ -202,14 +202,7 @@ Now we are left with 113 films less, and can confidently start our EDA.
 Let's take a look the distribution of ratings:
 
 ```{r}
-ggplot(movies_clean, aes(tmdb_vote_average)) +
-  geom_histogram(binwidth=0.5, fill = "blue", color = "white") + 
-  labs(
-    title = "Ratings Distribution",
-    x = "Voting Average",
-    y = "Number of Obs"
-  ) + 
-  theme_minimal()
+plot_rating_distribution(movies_clean)
 ```
 
 This is expected; users seem to be more likely to either give a "slightly above average" rating, or a complete dislike, i,e, 0. Few usually give full marks. So the data is slightly skewed to the left.
@@ -219,26 +212,7 @@ This is expected; users seem to be more likely to either give a "slightly above 
 Let's also take a look at ratings count - it's expected that there's most likely some correlation with more popular films, i.e., films with hundreds of millions for a budget or films that are generally rated higher
 
 ```{r}
-ggplot(movies_clean, aes(x = tmdb_vote_count)) +
-  geom_histogram(
-    bins = 40,
-    fill = "#4C78A8",
-    color = "white",
-    alpha = 0.9
-  ) +
-  scale_x_log10(labels = scales::comma) +
-  labs(
-    title = "Distribution of TMDB Vote Counts",
-    x = "Vote Count (log scale)",
-    y = "Number of Movies"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold"),
-    plot.subtitle = element_text(color = "gray40"),
-    axis.title = element_text(face = "bold"),
-    panel.grid.minor = element_blank()
-  )
+plot_vote_count_distribution(movies_clean)
 ```
 
 We see a long tail, with the data skewed to the right. This again, does make sense - most films don't receive many ratings. Think of how many blockbuster films come out per year relative to all "other" films. This most most likely can be seen in any data that has popularity attached to it, and the movie industry is no different.
@@ -259,7 +233,6 @@ movies_clean %>%
   select(title, tmdb_vote_count, release_year) %>%
   count(release_year, sort = TRUE) %>%
   kable()
-  
 ```
 
 So we see a few things happening. First, reviewers had left reviews for unreleased films - they are time travelers! Let's remove these films from the data. Second, as this dataset has a cutoff of July 2017, according to its description, so about half of the films released in 2017 are missing, which explains the drop.
@@ -272,25 +245,54 @@ plot_movies_per_year(movies_clean)
 
 ### Genres
 
+```{r}
+plot_movies_by_genre(movies_clean)
+```
+
+We see that the most common genres are `Drama`, `Comedy`, and `Thriller`. Whereas Westerns and TV Movies are the least popular.
+
 ### Genre vs. Rating
 
-### Word Cloud
+Let's take a look at the average ratings within genres
 
-keywords_tokens %\>% count(word, sort=TRUE) bind_tf_idf(word, genre, n)
+```{r}
+plot_genre_average_rating(movies_clean)
+```
+
+This does make sense, the avereage of any rating between 0 and 10 is 5. Animation films seem to be, on average, more highly rated than Westerns or Horror films; however, all the values are near a rating of 5.
 
 ### Numeric Features Heatmap
 
-corrplot(cor(numeric_df))
+```{r}
+plot_correlation_matrix(movies_clean)
+```
+
+We see that there are quite a few positive correlations. To name a few, `budget` and `revenue`, `vote_count` and `revenue`, `vote_count` and `user_ratings`, and `vote_average` and `vote_rating` have the stronger correlations.
 
 ### Runtime Distribution
 
+```{r}
+plot_runtime_distribution(movies_clean)
+```
+
+We see expected values; most films tend to be around 80-120 minutes long, most being about an hour and a half. The distribution is right-skewed, and there are some very short films, with runtimes of less than 10 minutes.
+
 ### Popularity vs. Rating
+
+```{r}
+plot_popularity_vs_rating(movies_clean)
+```
+
+Here we see that most ratings hover around 5-7 out of 10, and the popularity is right-skewed as well. There also seems to be a weak positive relationship between popularity and ratings.
 
 ### Bigrams
 
-use tidytext, lab 8
+Before moving forward, let's also take a look at bigrams:
 
-### Cosine Similarity, lab 8
+```{r}
+plot_bigram_graph(movies_clean, overview, min_count = 30)
+```
+Bigrams are a key part for TF-IDF, which will be used later in this lab. Here, we look at common pairs of words, called bigrams. We see common phrases, like `World War II`, `Kung Fu`, `Los Angeles`, and `San Francisco`. Of course, these are not all the bigrams present, only the ones appearing at least 30 times.
 
 # The Modeling
 
