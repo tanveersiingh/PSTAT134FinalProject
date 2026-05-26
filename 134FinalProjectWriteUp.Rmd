@@ -296,7 +296,7 @@ Bigrams are a key part for TF-IDF, which will be used later in this lab. Here, w
 
 # The Modeling
 
-Now with all the data cleaning and visualizations we have seen above, its now time to get into the most important part of this process, building the NLP and recommender models.
+Now with all the data cleaning and visualizations we have seen above, its now time to get into the most important part of this process, building the NLP and Recommender models.
 
 ## NLP Model
 
@@ -389,10 +389,11 @@ bigram_tf_idf_clean %>%
 
 So now more common bigrams are used here rather than rarer ones, making the tf-idf more reliable and not reliant on outliers as much.
 
+## Recommender Model
+
 ### Preparing for recommender
 
 The last thing we need to do is prepare the NLP for the recommender, so we will create a feature matrix, where we take the tf_idfs and assign them a value based on the movie they are most related to.
-
 
 Each column represents a bigram feature, each cell contains  TF-IDF weight for that bigram in that movie.
 
@@ -570,7 +571,7 @@ recommend_similar_movies <- function(title_query,
 
 
 
-# Testing Recommender Systems
+### Testing Recommender Systems
 
 ```{r}
 star_wars_recs <- recommend_similar_movies("Star Wars", n = 10)
@@ -599,7 +600,7 @@ star_wars_recs$recommendations %>%
   scroll_box(height = "400px")
 ```
 
-# Natural Language Query Recommender
+### Natural Language Query Recommender
 
 Here we prepare natural language queries for the recommender. We do this by converting queries into bigrams, applying the same IDF weights used for movie text, and return a sparse query vector.
 
@@ -703,7 +704,7 @@ recommend_from_query <- function(query,
 }
 ```
 
-# Testing Natural Language Recommender
+### Testing Natural Language Recommender
 
 ```{r}
 query_1 <- "space adventure with aliens and battles"
