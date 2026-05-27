@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE,
 source("R/01_packages.R")
 source("R/03_clean_and_merge.R")
 source("R/04_eda_plots.R")
+source("R/05_recommender.R")
 source("R/06_NLP.R")
 ```
 
@@ -323,7 +324,7 @@ movies_tokens %>%
   scroll_box(height = "500px")
 ```
 
-As seen above, the word id seems to have the most words appearing, while the rest of the words seem to be more in line with movie plots or summaries, so lets remove id so it wont have a larger impact on the model than it needs to, especially with almost 250,000 seen values of it.
+As seen above, the word `id` seems to have the most words appearing, while the rest of the words seem to be more in line with movie plots or summaries, so lets remove id so it wont have a larger impact on the model than it needs to, especially with almost 250,000 seen values of it.
 
 ```{r}
 movies_tokens_clean <- clean_movie_tokens(movies_tokens)
@@ -339,7 +340,7 @@ With id being removed, we now have an ideal token set to be able to build our TF
 
 ### TF-IDF
 
-Now using the Tf-Idf method, we can determine what words relate most with certain movies, so lets begin that process now.
+Now using the TF-IDF method, we can determine what words relate most with certain movies, so lets begin that process now.
 
 ```{r}
 movie_tf_idf <- make_word_tf_idf(movies_tokens_clean)
@@ -348,11 +349,11 @@ movie_tf_idf %>%
   head(30)
 ```
 
-As a result, we now have what the most common word is for individual movies, with the highest score of tf_idf being from non-english films, as our dataset contains all released movies, not just those from the west.
+As a result, we now have what the most common word is for individual movies, with the highest score of tf_idf being from non-English films, as our dataset contains all released movies, not just those from the West.
 
 ### Bigrams
 
-While singular word outputs can provide strong information, in terms of movies a lot of two grouped phrases will provide much stronger insights into what a movie may relate to. For instance, word combos like space battle could help when identifying movies like Star Wars and Star trek.
+While singular word outputs can provide strong information, in terms of movies a lot of two grouped phrases will provide much stronger insights into what a movie may relate to. For instance, word combos like space battle could help when identifying movies like `Star Wars` and `Star Trek`.
 
 ```{r}
 movie_bigrams <- make_bigram_tokens(movies_text)
@@ -366,7 +367,7 @@ movies_bigrams_clean %>%
   scroll_box(height = "500px")
 ```
 
-As seen from the list above, we have the most common word combinations across films, a lot of which makes since. For instance, sci-fi is one of the leading movie themes, so it is reflected as the most common word combination. So using these we will make a TF-IDF for the bigrams
+As seen from the list above, we have the most common word combinations across films, a lot of which makes since. For instance, Sci-Fi is one of the leading movie themes, so it is reflected as the most common word combination. So using these we will make a TF-IDF for the bigrams
 
 ```{r}
 bigram_tf_idf <- make_bigram_tf_idf(movies_bigrams_clean)
@@ -375,7 +376,7 @@ bigram_tf_idf %>%
   head(30) 
 ```
 
-Similar to the single word tf-idf, we see that there is a very high tf-idf score for films, however the number of appearances tends to be lower, so lets set a minimum appearance of 3 in order to remove rarer word combos.
+Similar to the single word TF-IDF, we see that there is a very high TF-IDF score for films, however the number of appearances tends to be lower, so lets set a minimum appearance of 3 in order to remove rarer word combos.
 
 ```{r}
 bigram_tf_idf_top <- clean_bigram_tf_idf(bigram_tf_idf)
@@ -404,26 +405,10 @@ movies_feature_matrix <- create_feature_matrix(bigram_tf_idf_clean)
 Here, we create a lookup table with the metadata required for recommendations. Converts the feature matrix into a sparse matrix and lines up the lookup table with the feature matrix row-wise to match movie IDs.
 
 ```{r}
-movie_search <- movies_text %>%
-  distinct(id, title, release_year, tmdb_vote_average, tmdb_popularity) %>%
-  mutate(
-    id = as.character(id),
-    title = as.character(title),
-    release_year = suppressWarnings(as.integer(release_year)),
-    tmdb_vote_average = suppressWarnings(as.numeric(tmdb_vote_average)),
-    tmdb_popularity = suppressWarnings(as.numeric(tmdb_popularity))
-  )
+prepared <- prepare_movie_search(movies_text, movies_feature_matrix)
 
-if (!inherits(movies_feature_matrix, "sparseMatrix")) {
-  movies_feature_matrix <- as(movies_feature_matrix, "dgCMatrix")
-}
-
-rownames(movies_feature_matrix) <- as.character(rownames(movies_feature_matrix))
-
-movie_search <- movie_search %>%
-  filter(id %in% rownames(movies_feature_matrix))
-
-movies_feature_matrix <- movies_feature_matrix[movie_search$id, ]
+movie_search <- prepared$movie_search
+movies_feature_matrix <- prepared$movies_feature_matrix
 
 dim(movies_feature_matrix)
 ```
@@ -431,69 +416,21 @@ dim(movies_feature_matrix)
 Identifies sparsity in the recommender feature matrix, helping us identify zero values.
 
 ```{r}
-recommender_summary <- tibble(
-  movies = nrow(movies_feature_matrix),
-  features = ncol(movies_feature_matrix),
-  nonzero_values = length(movies_feature_matrix@x),
-  sparsity = 1 - (length(movies_feature_matrix@x) / 
-                    (nrow(movies_feature_matrix) * ncol(movies_feature_matrix)))
-)
-
-recommender_summary %>%
-  kable(
-    digits = 4,
-    caption = "Sparse Feature Matrix Summary"
-  )
+create_recommender_summary(movies_feature_matrix)
 ```
 
-Rescales numeric variables to values between 0 and 1 in order to achieve parity across variables.
+We now create two functions;one that rescales numeric variables to values between 0 and 1 in order to achieve parity across variables, as well as one that deals with cosine similarity. The function calculates vectors for each movie to be used in comparison against other movies in the feature matrix.
 
 ```{r}
-rescale_01 <- function(x) {
-  x <- suppressWarnings(as.numeric(x))
-  
-  if (all(is.na(x))) {
-    return(rep(0, length(x)))
-  }
-  
-  min_x <- min(x, na.rm = TRUE)
-  max_x <- max(x, na.rm = TRUE)
-  
-  if (max_x == min_x) {
-    return(rep(0, length(x)))
-  }
-  
-  (x - min_x) / (max_x - min_x)
-}
-```
-
-Cosine Similarity. Here we calculate vectors for each movie to be used in comparison against other movies in the feature matrix
-
-```{r}
-matrix_row_norms <- function(mat) {
-  sqrt(Matrix::rowSums(mat ^ 2))
-}
-
 movie_row_norms <- matrix_row_norms(movies_feature_matrix)
 
-cosine_against_one_movie <- function(movie_id, feature_matrix, row_norms) {
-  movie_id <- as.character(movie_id)
-  
-  if (!(movie_id %in% rownames(feature_matrix))) {
-    stop("Movie ID was not found in the feature matrix.")
-  }
-  
-  movie_vec <- feature_matrix[movie_id, , drop = FALSE]
-  movie_norm <- row_norms[match(movie_id, rownames(feature_matrix))]
-  
-  raw_scores <- as.numeric(feature_matrix %*% Matrix::t(movie_vec))
-  denom <- row_norms * movie_norm
-  
-  similarities <- ifelse(denom == 0, 0, raw_scores / denom)
-  similarities[is.na(similarities)] <- 0
-  
-  similarities
-}
+similarities <- cosine_against_one_movie(
+  movie_id = "862",
+  feature_matrix = movies_feature_matrix,
+  row_norms = movie_row_norms
+)
+
+head(similarities)
 ```
 
 Finds the movie ID associated with a user's query using a multitude of methods, prioritizing more well known and highly rated movies in case of duplicates.
@@ -522,53 +459,13 @@ find_movie_id <- function(title_query, movie_lookup) {
 }
 ```
 
-Given a movie title, finds similar movies using TF-IDF cosine similarity then ranks them using a score combining content similarity as well as adding weights to popularity and rating to achieve more accurate ratngs.
+Given a movie title, finds similar movies using TF-IDF cosine similarity then ranks them using a score combining content similarity as well as adding weights to popularity and rating to achieve more accurate ratings.
 
 ```{r}
-recommend_similar_movies <- function(title_query,
-                                     n = 10,
-                                     feature_matrix = movies_feature_matrix,
-                                     movie_lookup = movie_search,
-                                     row_norms = movie_row_norms,
-                                     similarity_weight = 0.80,
-                                     popularity_weight = 0.10,
-                                     rating_weight = 0.10) {
-  
-  selected_id <- find_movie_id(title_query, movie_lookup)
-  
-  similarities <- cosine_against_one_movie(
-    movie_id = selected_id,
-    feature_matrix = feature_matrix,
-    row_norms = row_norms
-  )
-  
-  score_table <- tibble(
-    id = rownames(feature_matrix),
-    content_similarity = similarities
-  ) %>%
-    left_join(movie_lookup, by = "id") %>%
-    mutate(
-      popularity_scaled = rescale_01(tmdb_popularity),
-      rating_scaled = rescale_01(tmdb_vote_average),
-      final_score = similarity_weight * content_similarity +
-        popularity_weight * popularity_scaled +
-        rating_weight * rating_scaled
-    ) %>%
-    filter(id != selected_id) %>%
-    arrange(desc(final_score), desc(content_similarity)) %>%
-    slice_head(n = n)
-  
-  selected_movie <- movie_lookup %>%
-    filter(id == selected_id) %>%
-    slice(1)
-  
-  list(
-    input_movie = selected_movie,
-    recommendations = score_table
-  )
-}
+results <- recommend_similar_movies("Toy Story", n = 10)
+results$input_movie
+results$recommendations
 ```
-
 
 
 ### Testing Recommender Systems
@@ -608,101 +505,9 @@ Here we prepare natural language queries for the recommender. We do this by conv
 bigram_idf_lookup <- bigram_tf_idf_clean %>%
   distinct(bigram, idf) %>%
   mutate(bigram = as.character(bigram))
-
-make_query_vector <- function(query,
-                              feature_terms = colnames(movies_feature_matrix),
-                              idf_lookup = bigram_idf_lookup) {
-  
-  query_tbl <- tibble(query_id = "query", text = query)
-  
-  query_bigrams <- query_tbl %>%
-    unnest_tokens(bigram, text, token = "ngrams", n = 2) %>%
-    separate(bigram, into = c("word1", "word2"), sep = " ", remove = FALSE) %>%
-    filter(
-      !word1 %in% stop_words$word,
-      !word2 %in% stop_words$word
-    ) %>%
-    select(query_id, bigram)
-  
-  if (nrow(query_bigrams) == 0) {
-    return(Matrix(0, nrow = 1, ncol = length(feature_terms),
-                  dimnames = list("query", feature_terms), sparse = TRUE))
-  }
-  
-  query_tf <- query_bigrams %>%
-    count(query_id, bigram, name = "n") %>%
-    group_by(query_id) %>%
-    mutate(tf = n / sum(n)) %>%
-    ungroup() %>%
-    left_join(idf_lookup, by = "bigram") %>%
-    mutate(
-      idf = replace_na(idf, 0),
-      tf_idf = tf * idf
-    ) %>%
-    filter(bigram %in% feature_terms)
-  
-  query_vec <- Matrix(0,
-                      nrow = 1,
-                      ncol = length(feature_terms),
-                      dimnames = list("query", feature_terms),
-                      sparse = TRUE)
-  
-  if (nrow(query_tf) > 0) {
-    matched_cols <- match(query_tf$bigram, feature_terms)
-    query_vec[1, matched_cols] <- query_tf$tf_idf
-  }
-  
-  query_vec
-}
 ```
 
 Here we have the main NLP recommender with a hybrid approach bridging popularity and rating with the similarity score returned from the NLP.
-
-```{r}
-recommend_from_query <- function(query,
-                                 n = 10,
-                                 feature_matrix = movies_feature_matrix,
-                                 movie_lookup = movie_search,
-                                 row_norms = movie_row_norms,
-                                 similarity_weight = 0.80,
-                                 popularity_weight = 0.10,
-                                 rating_weight = 0.10) {
-  
-  query_vec <- make_query_vector(
-    query = query,
-    feature_terms = colnames(feature_matrix)
-  )
-  
-  query_norm <- sqrt(sum(query_vec ^ 2))
-  
-  if (query_norm == 0) {
-    stop("The query did not contain enough matching terms. Try a more descriptive query.")
-  }
-  
-  raw_scores <- as.numeric(feature_matrix %*% Matrix::t(query_vec))
-  denom <- row_norms * query_norm
-  
-  similarities <- ifelse(denom == 0, 0, raw_scores / denom)
-  similarities[is.na(similarities)] <- 0
-  
-  score_table <- tibble(
-    id = rownames(feature_matrix),
-    query_similarity = similarities
-  ) %>%
-    left_join(movie_lookup, by = "id") %>%
-    mutate(
-      popularity_scaled = rescale_01(tmdb_popularity),
-      rating_scaled = rescale_01(tmdb_vote_average),
-      final_score = similarity_weight * query_similarity +
-        popularity_weight * popularity_scaled +
-        rating_weight * rating_scaled
-    ) %>%
-    arrange(desc(final_score), desc(query_similarity)) %>%
-    slice_head(n = n)
-  
-  score_table
-}
-```
 
 ### Testing Natural Language Recommender
 
@@ -764,45 +569,11 @@ recommend_from_query(query_3, n = 10) %>%
 ```
 
 ```{r}
-plot_query_recommendations <- function(query, n = 10) {
-  recs <- recommend_from_query(query, n = n) %>%
-    mutate(title = str_trunc(title, width = 35)) %>%
-    arrange(final_score) %>%
-    mutate(title = factor(title, levels = title))
-  
-  ggplot(recs, aes(x = final_score, y = title)) +
-    geom_col() +
-    labs(
-      title = paste("Top Movie Recommendations for:", query),
-      x = "Final Recommendation Score",
-      y = "Movie"
-    ) +
-    theme_minimal()
-}
-
 plot_query_recommendations("space adventure with aliens and battles", n = 10)
 ```
 
 
 ```{r}
-recommend_from_query_similarity_only <- function(query,
-                                                 n = 10,
-                                                 feature_matrix = movies_feature_matrix,
-                                                 movie_lookup = movie_search,
-                                                 row_norms = movie_row_norms) {
-  
-  recommend_from_query(
-    query = query,
-    n = n,
-    feature_matrix = feature_matrix,
-    movie_lookup = movie_lookup,
-    row_norms = row_norms,
-    similarity_weight = 1,
-    popularity_weight = 0,
-    rating_weight = 0
-  )
-}
-
 comparison_query <- "dark crime drama about mafia family and power"
 
 similarity_only_results <- recommend_from_query_similarity_only(comparison_query, n = 10) %>%
