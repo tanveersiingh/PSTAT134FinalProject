@@ -1,0 +1,10 @@
+# Minimal package loads for the Shiny app (not the write-up).
+library(shiny)
+library(bslib)
+library(dplyr)
+library(readr)
+library(tidyverse)
+library(ISOcodes)
+library(tidytext)
+library(Matrix)
+library(htmltools)

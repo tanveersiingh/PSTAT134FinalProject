@@ -198,10 +198,36 @@ make_query_vector <- function(query,
     unnest_tokens(bigram, text, token = "ngrams", n = 2) %>%
     separate(bigram, into = c("word1", "word2"), sep = " ", remove = FALSE) %>%
     filter(
-      !word1 %in% stop_words$word,
-      !word2 %in% stop_words$word
+      !(word1 %in% stop_words$word & word2 %in% stop_words$word)
     ) %>%
     select(query_id, bigram)
+  
+  if (nrow(query_bigrams) == 0) {
+    fallback_words <- query_tbl %>%
+      unnest_tokens(word, text) %>%
+      filter(!word %in% stop_words$word, nchar(word) >= 3) %>%
+      pull(word) %>%
+      unique()
+    
+    if (length(fallback_words) > 0) {
+      matched_bigrams <- feature_terms[
+        vapply(
+          feature_terms,
+          function(bigram) {
+            any(vapply(
+              fallback_words,
+              function(w) grepl(w, bigram, fixed = TRUE),
+              logical(1)
+            ))
+          },
+          logical(1)
+        )
+      ]
+      if (length(matched_bigrams) > 0) {
+        query_bigrams <- tibble(query_id = "query", bigram = matched_bigrams)
+      }
+    }
+  }
   
   if (nrow(query_bigrams) == 0) {
     return(Matrix(0, nrow = 1, ncol = length(feature_terms),
@@ -251,7 +277,23 @@ recommend_from_query <- function(query,
   query_norm <- sqrt(sum(query_vec ^ 2))
   
   if (query_norm == 0) {
-    stop("The query did not contain enough matching terms. Try a more descriptive query.")
+    title_result <- tryCatch(
+      recommend_similar_movies(
+        query = query,
+        n = n,
+        feature_matrix = feature_matrix,
+        movie_lookup = movie_lookup,
+        row_norms = row_norms,
+        similarity_weight = similarity_weight,
+        popularity_weight = popularity_weight,
+        rating_weight = rating_weight
+      ),
+      error = function(e) NULL
+    )
+    if (!is.null(title_result) && nrow(title_result$recommendations) > 0) {
+      return(title_result$recommendations)
+    }
+    stop("The query did not contain enough matching terms. Try a movie title or a short description.")
   }
   
   raw_scores <- as.numeric(feature_matrix %*% Matrix::t(query_vec))
@@ -309,5 +351,77 @@ recommend_from_query_similarity_only <- function(query,
     similarity_weight = 1,
     popularity_weight = 0,
     rating_weight = 0
+  )
+}
+
+recommend_for_chat <- function(query,
+                               n = 5,
+                               feature_matrix = movies_feature_matrix,
+                               movie_lookup = movie_search,
+                               row_norms = movie_row_norms) {
+  query <- trimws(as.character(query))
+  if (!nzchar(query)) {
+    stop("Please enter a movie title or description.")
+  }
+
+  resolved <- resolve_movie_title_from_text(
+    user_text = query,
+    movies_catalog = movie_lookup,
+    top_k = 5L,
+    min_confidence = 0.35
+  )
+
+  if (resolved$status == "resolved") {
+    out <- recommend_similar_movies(
+      title_query = resolved$resolved_title,
+      n = n,
+      feature_matrix = feature_matrix,
+      movie_lookup = movie_lookup,
+      row_norms = row_norms
+    )
+    return(out$recommendations)
+  }
+
+  if (resolved$status == "ambiguous") {
+    stop(resolved$user_prompt)
+  }
+
+  title_result <- tryCatch(
+    recommend_similar_movies(
+      title_query = query,
+      n = n,
+      feature_matrix = feature_matrix,
+      movie_lookup = movie_lookup,
+      row_norms = row_norms
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(title_result) && nrow(title_result$recommendations) > 0) {
+    return(title_result$recommendations)
+  }
+
+  cleaned <- strip_query_boilerplate(query)
+  if (nzchar(cleaned) && !identical(cleaned, query)) {
+    title_result <- tryCatch(
+      recommend_similar_movies(
+        title_query = cleaned,
+        n = n,
+        feature_matrix = feature_matrix,
+        movie_lookup = movie_lookup,
+        row_norms = row_norms
+      ),
+      error = function(e) NULL
+    )
+    if (!is.null(title_result) && nrow(title_result$recommendations) > 0) {
+      return(title_result$recommendations)
+    }
+  }
+
+  recommend_from_query(
+    query = query,
+    n = n,
+    feature_matrix = feature_matrix,
+    movie_lookup = movie_lookup,
+    row_norms = row_norms
   )
 }
