@@ -354,6 +354,25 @@ recommend_from_query_similarity_only <- function(query,
   )
 }
 
+looks_like_description_query <- function(text) {
+  x <- trimws(tolower(as.character(text)))
+  if (!nzchar(x)) return(FALSE)
+  if (nchar(x) >= 35) return(TRUE)
+  
+  # If it contains common "description intent" words, treat as description
+  if (grepl("\\babout\\b|\\bwith\\b|\\bset\\s+in\\b|\\bstarring\\b|\\bwhere
+            \\b|\\bthat\\b|\\bwhich\\b|\\brelationship(s)?\\b|\\blove\\b|
+            \\bromantic\\b|\\bcomedy\\b|\\bdrama\\b|\\bthriller\\b|\\bhorror\\b|
+            \\bsci[- ]?fi\\b", x)) {
+    return(TRUE)
+  }
+  
+  # If it contains lots of spaces, it's more likely a phrase than a title
+  if (length(strsplit(x, "\\s+")[[1]]) >= 6) return(TRUE)
+  
+  FALSE
+}
+
 recommend_for_chat <- function(query,
                                n = 5,
                                feature_matrix = movies_feature_matrix,
@@ -363,14 +382,26 @@ recommend_for_chat <- function(query,
   if (!nzchar(query)) {
     stop("Please enter a movie title or description.")
   }
-
+  
+  # NEW: if it looks like a free-text description, skip title resolution.
+  if (looks_like_description_query(query)) {
+    return(recommend_from_query(
+      query = query,
+      n = n,
+      feature_matrix = feature_matrix,
+      movie_lookup = movie_lookup,
+      row_norms = row_norms
+    ))
+  }
+  
+  # Otherwise, keep existing "title-first" behavior.
   resolved <- resolve_movie_title_from_text(
     user_text = query,
     movies_catalog = movie_lookup,
     top_k = 5L,
     min_confidence = 0.35
   )
-
+  
   if (resolved$status == "resolved") {
     out <- recommend_similar_movies(
       title_query = resolved$resolved_title,
@@ -381,11 +412,11 @@ recommend_for_chat <- function(query,
     )
     return(out$recommendations)
   }
-
+  
   if (resolved$status == "ambiguous") {
     stop(resolved$user_prompt)
   }
-
+  
   title_result <- tryCatch(
     recommend_similar_movies(
       title_query = query,
@@ -399,7 +430,7 @@ recommend_for_chat <- function(query,
   if (!is.null(title_result) && nrow(title_result$recommendations) > 0) {
     return(title_result$recommendations)
   }
-
+  
   cleaned <- strip_query_boilerplate(query)
   if (nzchar(cleaned) && !identical(cleaned, query)) {
     title_result <- tryCatch(
@@ -416,7 +447,7 @@ recommend_for_chat <- function(query,
       return(title_result$recommendations)
     }
   }
-
+  
   recommend_from_query(
     query = query,
     n = n,
