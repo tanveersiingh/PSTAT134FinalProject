@@ -1,59 +1,116 @@
-# PSTAT 174 Project
+# PSTAT 134 Final Project — Movie Recommender (Shiny)
 
-## Overview
+A Shiny app + accompanying write-up that builds a **content-based movie recommender** using **NLP features (bigram TF–IDF)** from movie metadata.
 
-Download the data from [here](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset), rename the folder to `data` and place it under the main folder
+> Course repo: **PSTAT 134** (the existing write-up/README may still reference PSTAT 174).
 
-This project explores how recommender systems and natural language processing (NLP) can be used to generate personalized movie recommendations using film metadata.
+## What this project does
 
-------------------------------------------------------------------------
+- Loads and cleans the TMDB/MovieLens metadata datasets.
+- Builds NLP features from movie text fields.
+- Creates a feature matrix and recommends similar movies using vector similarity.
+- Provides a simple **chat-style Shiny interface** where users can type a movie they like (or a free-form query) and receive recommendations.
 
-## Datasets
+## Demo / Write-up
 
-The project uses movie metadata datasets derived from TMDB and MovieLens sources.
+The main project report is included in three formats:
 
-Datasets include:
+- `134FinalProjectWriteUp.html`
+- `134FinalProjectWriteUp.pdf`
+- `134FinalProjectWriteUp.Rmd`
 
-- `movies_metadata.csv`
+## Running the app locally
 
-- `ratings.csv`
+### 1) Get the dataset
 
-- `keywords.csv`
+Download **“The Movies Dataset”** from Kaggle and place the CSVs into the expected folder structure.
 
-- `credits.csv`
+The app expects the following files to exist:
 
-- `links.csv`
+- `data/movies/movies_metadata.csv`
+- `data/movies/ratings.csv`
+- `data/movies/keywords.csv`
+- `data/movies/credits.csv`
+- `data/movies/links.csv`
 
-These datasets contain information such as:
+> The previous README linked the dataset here: https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset
 
-- Movie titles
+A quick way to match the expected layout is:
 
-- Genres
-
-- Cast and crew information
-
-- Plot keywords
-
-- Ratings and popularity metrics
-
-- Language and release information
-
-## Repository Structure
-
-```         
+```text
 .
 ├── data/
-├── ProjectMemo/
-├── rubric/
-├── writeup/
-├── README.md
-└── ...
+│   └── movies/
+│       ├── credits.csv
+│       ├── keywords.csv
+│       ├── links.csv
+│       ├── movies_metadata.csv
+│       └── ratings.csv
+├── global.R
+├── server.R
+└── ui.R
 ```
 
-------------------------------------------------------------------------
+### 2) Install R packages
+
+Packages are loaded in `R/app_packages.R`:
+
+- shiny
+- bslib
+- dplyr
+- readr
+- tidyverse
+- ISOcodes
+- tidytext
+- Matrix
+- htmltools
+
+Install anything you’re missing, for example:
+
+```r
+install.packages(c(
+  "shiny", "bslib", "dplyr", "readr", "tidyverse",
+  "ISOcodes", "tidytext", "Matrix", "htmltools"
+))
+```
+
+### 3) Start the app
+
+From the repository root in R/RStudio:
+
+```r
+shiny::runApp()
+```
+
+On startup, `global.R` calls `bootstrap_recommender()`, which:
+
+- loads the raw CSVs
+- cleans/merges datasets
+- builds the bigram TF–IDF representation
+- creates the feature matrix used for recommendations
+
+The first run may take a few minutes depending on your machine.
+
+## Project structure (high-level)
+
+```text
+.
+├── R/                      # Data cleaning, NLP, recommender + Shiny helpers
+├── www/                    # App static assets (CSS, etc.)
+├── examples/               # Example files / artifacts
+├── tests/                  # Tests (if present)
+├── ProjectMemo/            # Course deliverables
+├── 134FinalProjectWriteUp.*
+├── global.R
+├── server.R
+└── ui.R
+```
+
+## Notes / troubleshooting
+
+- If you see file-not-found errors, double-check the dataset path is `data/movies/...` and filenames match exactly.
+- If you run into memory/time issues when building the model, try running in a fresh R session and ensure you have enough RAM available.
 
 ## Authors
 
-Eric Livshiz, Dylan Crookes, Tanveer Singh, Jake Vurpillat, Samuel Erlikhman
-
-University of California, Santa Barbara
+Eric Livshiz, Dylan Crookes, Tanveer Singh, Jake Vurpillat, Samuel Erlikhman (UCSB)
