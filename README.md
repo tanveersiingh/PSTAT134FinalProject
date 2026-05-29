@@ -77,4 +77,5 @@ The first run may take a few minutes depending on your machine.
 ## Authors
 
 Eric Livshiz, Dylan Crookes, Tanveer Singh, Jake Vurpillat, Samuel Erlikhman
+
 University of California, Santa Barbara
