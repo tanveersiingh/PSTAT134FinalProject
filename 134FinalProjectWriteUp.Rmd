@@ -593,3 +593,41 @@ bind_rows(similarity_only_results, hybrid_results) %>%
 ```
 
 Overall, the final recommendation given by the NLP utilizes a hybridized approach incorporating a movie's popularity as well as its rating rather than just pure text sumilarity. We convert the query into a TF-IDF vector and compare it with each movie using cosine similarity. We then rank the most similar movies in order, descending and return a list. 
+
+# Conclusion
+
+We live in the age of streaming, where platforms like Netflix and Prime Video offer tens 
+of thousands of titles, yet users frequently encounter choice overload, resulting in 
+endless scrolling without selection. In this project, we designed and built a 
+content-based movie recommendation system that leverages both structured film 
+metadata and natural language processing (NLP). Using The Movies Dataset from 
+Kaggle (~45,000 films with metadata sourced from TMDB and MovieLens), we 
+performed data cleaning and exploratory data analysis to isolate meaningful features, 
+accounting for structural elements like cast, crew, genres, and text-based plot 
+overviews. 
+
+To translate raw text into machine-readable representations, we utilized tokenization 
+and TF-IDF (Term Frequency-Inverse Document Frequency) calculations. By extracting 
+bigrams (such as "Sci-Fi" or "World War II") from the text data, we preserved the 
+contextual, structural representation of movie descriptions. This allowed us to build a 
+comprehensive feature matrix for computing cosine similarity between feature vectors. 
+Crucially, our testing confirmed that a pure text-similarity model occasionally surfaces 
+obscure, low-quality outliers that happen to share high keyword overlap. We introduce a 
+hybrid scoring algorithm, which balances content similarity with weighted TMDB 
+popularity and average user ratings which substantially improved recommendation 
+quality. 
+
+However, several distinct limitations remain. Because our dataset caps off in July 2017, 
+the system is blind to recent cinematic releases, preventing natural recommendations 
+like modern sequels. Furthermore, as a strict content-based system, it operates without 
+historical user profile data, limiting its capacity for personalized collaborative filtering. 
+Finally, the weights used in our hybrid scoring system were tuned experientially rather 
+than via formal cross-validation or optimization. 
+
+Future iterations could resolve these limitations by integrating a live data pipeline via the 
+TMDB API, layering in user-level collaborative filtering to build a true hybrid 
+recommender, or utilizing a transformer-based language model to parse more complex 
+or ambiguous user queries. Ultimately, this project demonstrates that even without deep 
+learning architectures, a well-engineered pipeline that is grounded in meticulous data 
+cleaning, thoughtful feature extraction, and a balanced hybrid ranking strategy can 
+produce a highly practical and effective movie recommendation system. 
