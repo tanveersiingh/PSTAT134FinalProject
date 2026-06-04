@@ -1,0 +1,10 @@
+name: pstat134finalproject
+title:
+username: samuelerl
+account: samuelerl
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17437153
+bundleId:
+url: https://samuelerl.shinyapps.io/pstat134finalproject/
+version: 1
