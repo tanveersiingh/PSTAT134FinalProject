@@ -5203,8 +5203,11 @@ caps off in July 2017, the system is blind to recent cinematic releases,
 preventing natural recommendations like modern sequels. Furthermore, as
 a strict content-based system, it operates without historical user
 profile data, limiting its capacity for personalized collaborative
-filtering. Finally, the weights used in our hybrid scoring system were
-tuned experientially rather than via formal cross-validation or
+filtering. The project is also strictly Bigram related; it can tell if
+two words are related, and has no clue about culture relevance or
+cinematic universes, it only recommends films that have similar word
+structure. Finally, the weights used in our hybrid scoring system were
+tuned experimentally rather than via formal cross-validation or
 optimization.</p>
 <p>Future iterations could resolve these limitations by integrating a
 live data pipeline via the TMDB API, layering in user-level
@@ -5215,6 +5218,12 @@ deep learning architectures, a well-engineered pipeline that is grounded
 in meticulous data cleaning, thoughtful feature extraction, and a
 balanced hybrid ranking strategy can produce a highly practical and
 effective movie recommendation system.</p>
+</div>
+<div id="a.i.-statement" class="section level1">
+<h1>A.I. Statement</h1>
+<p>This project was assisted by A.I. We queried OpenAI’s ChatGPT 5.5
+model for help with refactoring the project, bug review, recommendations
+on the presentation, and test cases.</p>
 </div>
 
 
